@@ -1,0 +1,7 @@
+{
+  "name": "Gemini AI Psychologist",
+  "description": "An AI-powered psychologist app that uses the Gemini Live API for real-time voice conversations, providing a supportive and empathetic space for users to talk through their thoughts and feelings.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
