@@ -1,13 +1,17 @@
 
 import React from 'react';
+import InterviewSettingsSelector from './InterviewSettings';
+import { InterviewSettings } from '../types';
 
 interface SkillSelectorProps {
   skills: string[];
   summary: string;
+  settings: InterviewSettings;
   onSelectSkill: (skill: string) => void;
+  onSettingsChange: (settings: InterviewSettings) => void;
 }
 
-const SkillSelector: React.FC<SkillSelectorProps> = ({ skills, summary, onSelectSkill }) => {
+const SkillSelector: React.FC<SkillSelectorProps> = ({ skills, summary, settings, onSelectSkill, onSettingsChange }) => {
   return (
     <div className="w-full max-w-4xl p-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg space-y-6">
       <div>
@@ -19,9 +23,16 @@ const SkillSelector: React.FC<SkillSelectorProps> = ({ skills, summary, onSelect
         </p>
       </div>
       
-      <div>
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-2">
+          Interview Settings
+        </h3>
+        <InterviewSettingsSelector settings={settings} onSettingsChange={onSettingsChange} />
+      </div>
+
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">
-          Select a topic for your interview:
+          Select a topic to start:
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {skills.map((skill) => (

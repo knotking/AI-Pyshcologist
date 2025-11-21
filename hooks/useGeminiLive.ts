@@ -1,7 +1,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from '@google/genai';
-import { ConnectionState, CurrentTranscription, TranscriptionEntry } from '../types';
+import { ConnectionState, CurrentTranscription, TranscriptionEntry, InterviewSettings } from '../types';
 import { createBlob, decode, decodeAudioData } from '../utils/audio';
 
 export const useGeminiLive = () => {
@@ -59,7 +59,7 @@ export const useGeminiLive = () => {
         setConnectionState(ConnectionState.CLOSED);
     }, [cleanup]);
 
-    const connect = useCallback(async (resumeSummary: string, selectedSkill: string) => {
+    const connect = useCallback(async (resumeSummary: string, selectedSkill: string, settings: InterviewSettings) => {
         if (connectionState !== ConnectionState.IDLE && connectionState !== ConnectionState.CLOSED && connectionState !== ConnectionState.ERROR) {
             return;
         }
@@ -75,6 +75,8 @@ export const useGeminiLive = () => {
             Context about the candidate: ${resumeSummary}
             
             Your goal is to interview the candidate specifically about: "${selectedSkill}".
+            
+            IMPORTANT: You must conduct this interview in the following language: ${settings.language}.
             
             1. Start by asking a relevant technical question about ${selectedSkill}.
             2. Listen to their answer, then ask a follow-up question or challenge their assumption.
@@ -176,7 +178,7 @@ export const useGeminiLive = () => {
                 },
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }, // Changed voice to Puck for a more neutral/interviewer tone
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: settings.voice } } },
                     systemInstruction: systemInstruction,
                     inputAudioTranscription: {},
                     outputAudioTranscription: {},
