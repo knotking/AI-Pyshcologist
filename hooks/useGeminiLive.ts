@@ -4,8 +4,6 @@ import { GoogleGenAI, LiveSession, LiveServerMessage, Modality } from '@google/g
 import { ConnectionState, CurrentTranscription, TranscriptionEntry } from '../types';
 import { createBlob, decode, decodeAudioData } from '../utils/audio';
 
-const SYSTEM_INSTRUCTION = "You are a compassionate and empathetic psychologist. Listen carefully to the user, offer thoughtful reflections, and guide them through their thoughts and feelings. Maintain a calm, professional, and supportive tone. Keep your responses concise and conversational.";
-
 export const useGeminiLive = () => {
     const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.IDLE);
     const [transcriptionHistory, setTranscriptionHistory] = useState<TranscriptionEntry[]>([]);
@@ -14,6 +12,7 @@ export const useGeminiLive = () => {
     const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
     const audioContextRefs = useRef<{ input: AudioContext | null, output: AudioContext | null, scriptProcessor: ScriptProcessorNode | null, mediaStream: MediaStream | null }>({ input: null, output: null, scriptProcessor: null, mediaStream: null });
     const outputAudioRefs = useRef<{ queue: Set<AudioBufferSourceNode>, nextStartTime: number }>({ queue: new Set(), nextStartTime: 0 });
+    const currentTranscriptionRef = useRef<CurrentTranscription>({ user: '', model: '' });
 
     const stopAudioPlayback = useCallback(() => {
         outputAudioRefs.current.queue.forEach(source => {
@@ -60,7 +59,7 @@ export const useGeminiLive = () => {
         setConnectionState(ConnectionState.CLOSED);
     }, [cleanup]);
 
-    const connect = useCallback(async () => {
+    const connect = useCallback(async (resumeSummary: string, selectedSkill: string) => {
         if (connectionState !== ConnectionState.IDLE && connectionState !== ConnectionState.CLOSED && connectionState !== ConnectionState.ERROR) {
             return;
         }
@@ -68,6 +67,21 @@ export const useGeminiLive = () => {
         setConnectionState(ConnectionState.CONNECTING);
         setTranscriptionHistory([]);
         setCurrentTranscription({ user: '', model: '' });
+        currentTranscriptionRef.current = { user: '', model: '' };
+
+        const systemInstruction = `
+            You are a professional, strict but fair technical interviewer. 
+            
+            Context about the candidate: ${resumeSummary}
+            
+            Your goal is to interview the candidate specifically about: "${selectedSkill}".
+            
+            1. Start by asking a relevant technical question about ${selectedSkill}.
+            2. Listen to their answer, then ask a follow-up question or challenge their assumption.
+            3. Keep questions concise and focused. 
+            4. Maintain a professional interview tone.
+            5. Do not provide long explanations unless asked. Focus on evaluating the candidate.
+        `;
 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -124,27 +138,29 @@ export const useGeminiLive = () => {
                             stopAudioPlayback();
                         }
 
-                        let userText = '', modelText = '';
-                        if (message.serverContent?.inputTranscription) {
-                            userText = message.serverContent.inputTranscription.text;
+                        const userText = message.serverContent?.inputTranscription?.text || '';
+                        const modelText = message.serverContent?.outputTranscription?.text || '';
+                        
+                        if (userText || modelText) {
+                            currentTranscriptionRef.current.user += userText;
+                            currentTranscriptionRef.current.model += modelText;
+                            setCurrentTranscription({ ...currentTranscriptionRef.current });
                         }
-                        if (message.serverContent?.outputTranscription) {
-                            modelText = message.serverContent.outputTranscription.text;
-                        }
-
-                        setCurrentTranscription(prev => ({ user: prev.user + userText, model: prev.model + modelText }));
 
                         if (message.serverContent?.turnComplete) {
                             setTranscriptionHistory(prev => {
                                 const newHistory = [...prev];
-                                if (currentTranscription.user.trim()) {
-                                    newHistory.push({ speaker: 'user', text: currentTranscription.user.trim() });
+                                const userTurn = currentTranscriptionRef.current.user.trim();
+                                const modelTurn = currentTranscriptionRef.current.model.trim();
+                                if (userTurn) {
+                                    newHistory.push({ speaker: 'user', text: userTurn });
                                 }
-                                if (currentTranscription.model.trim()) {
-                                    newHistory.push({ speaker: 'model', text: currentTranscription.model.trim() });
+                                if (modelTurn) {
+                                    newHistory.push({ speaker: 'model', text: modelTurn });
                                 }
                                 return newHistory;
                             });
+                            currentTranscriptionRef.current = { user: '', model: '' };
                             setCurrentTranscription({ user: '', model: '' });
                         }
                     },
@@ -160,8 +176,8 @@ export const useGeminiLive = () => {
                 },
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }, // Changed voice to Puck for a more neutral/interviewer tone
+                    systemInstruction: systemInstruction,
                     inputAudioTranscription: {},
                     outputAudioTranscription: {},
                 },
@@ -174,7 +190,7 @@ export const useGeminiLive = () => {
             setConnectionState(ConnectionState.ERROR);
             cleanup();
         }
-    }, [connectionState, cleanup, stopAudioPlayback, currentTranscription]);
+    }, [connectionState, cleanup, stopAudioPlayback]);
     
     // Final cleanup on unmount
     useEffect(() => {

@@ -18,3 +18,15 @@ export interface CurrentTranscription {
   user: string;
   model: string;
 }
+
+export enum AppState {
+  UPLOAD = 'UPLOAD',
+  ANALYZING = 'ANALYZING',
+  SELECTION = 'SELECTION',
+  INTERVIEW = 'INTERVIEW',
+}
+
+export interface ResumeAnalysis {
+  summary: string;
+  skills: string[];
+}
